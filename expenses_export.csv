@@ -1,0 +1,19 @@
+Date,Description,Amount,Currency,PaidBy,SplitType,Participants,SplitValues,IsSettlement
+2024-02-05,February Rent,40000,INR,Aisha,EQUAL,Aisha;Rohan;Priya;Meera,,FALSE
+2024-02-10,Groceries,3000,INR,,EQUAL,Aisha;Rohan;Priya;Meera,,FALSE
+2024-02-12,Internet Bill,one-thousand,INR,Rohan,EQUAL,Aisha;Rohan;Priya;Meera,,FALSE
+2024-02-14,Cleaning Supplies,,INR,Priya,EQUAL,Aisha;Rohan;Priya;Meera,,FALSE
+2024-02-15,Bottle return refund,-200,INR,Rohan,EQUAL,Aisha;Rohan;Priya;Meera,,FALSE
+2024-02-28,Dinner Party,4500,INR,Priya,EQUAL,Aisha;Rohan;Priya;Meera,,FALSE
+2024-02-20,Travel tickets,50,EUR,Aisha,EQUAL,Aisha;Rohan;Priya;Meera,,FALSE
+2024-02-22,Utility bill,1200,INR,Karan,EQUAL,Aisha;Rohan;Priya;Meera,,FALSE
+2024-02-25,Dinner at Olive,1000,INR,Aisha,EXACT,Aisha;Rohan,600;600,FALSE
+2024-02-28,Gas Cylinder,1500,INR,Rohan,EQUAL,Aisha;Rohan;Priya;Meera,,FALSE
+2024-02-28,Gas Cylinder,1500,INR,Rohan,EQUAL,Aisha;Rohan;Priya;Meera,,FALSE
+2024-03-01,Rohan pays Aisha,5000,INR,Rohan,EQUAL,Aisha,,TRUE
+2024-03-01,Rohan pays Aisha,5000,INR,Rohan,EQUAL,Aisha,,TRUE
+2024-03-10,Priya pay back Aisha rent share,8000,INR,Priya,EQUAL,Aisha,,FALSE
+2024-04-10,Electricity Bill April,4000,INR,Aisha,EQUAL,Aisha;Rohan;Priya;Meera,,FALSE
+2024-03-15,March Groceries,3000,INR,Rohan,EQUAL,Aisha;Rohan;Priya;Sam,,FALSE
+2024-04-20,Goa dinner,120,USD,Priya,EQUAL,Aisha;Rohan;Priya;Dev,,FALSE
+2024-05-01,May Rent,45000,INR,Aisha,EQUAL,Aisha;Rohan;Priya;Sam,,FALSE

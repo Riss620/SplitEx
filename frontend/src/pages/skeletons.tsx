@@ -1,0 +1,12 @@
+import React from 'react';
+export const Login: React.FC = () => <div>Login Page</div>;
+export const Register: React.FC = () => <div>Register Page</div>;
+export const Dashboard: React.FC = () => <div>Dashboard Page</div>;
+export const Groups: React.FC = () => <div>Groups Page</div>;
+export const GroupDetails: React.FC = () => <div>Group Details Page</div>;
+export const Expenses: React.FC = () => <div>Expenses Page</div>;
+export const Settlements: React.FC = () => <div>Settlements Page</div>;
+export const ImportCsv: React.FC = () => <div>CSV Import Page</div>;
+export const Anomalies: React.FC = () => <div>Anomalies Review Page</div>;
+export const Profile: React.FC = () => <div>Profile Page</div>;
+export const AuditLogs: React.FC = () => <div>Audit Logs Page</div>;

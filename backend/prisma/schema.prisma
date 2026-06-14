@@ -1,0 +1,285 @@
+// =============================================================================
+// SplitEx — Prisma Schema
+// Database: MySQL (TiDB Cloud Serverless — free tier)
+// ORM: Prisma v5
+//
+// Design Decisions:
+//   - UUIDs as primary keys for all tables (portable, no sequential exposure)
+//   - Soft deletes via deletedAt (null = active, timestamp = deleted)
+//   - All monetary amounts stored as Decimal for precision
+//   - Historical membership preserved via joinedAt/leftAt
+//   - Audit trail via AuditLog table with actor + action + metadata
+//   - relationMode="prisma" required for TiDB Cloud (no FK enforcement at DB level)
+//   - All FK columns explicitly indexed (Prisma requirement for relationMode=prisma)
+// =============================================================================
+
+datasource db {
+  provider     = "mysql"
+  url          = env("DATABASE_URL")
+  relationMode = "prisma"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// ---------------------------------------------------------------------------
+// Users — registered platform accounts
+// ---------------------------------------------------------------------------
+model User {
+  id           String    @id @default(uuid())
+  email        String    @unique @db.VarChar(255)
+  passwordHash String    @db.VarChar(255)
+  name         String    @db.VarChar(100)
+  role         String    @default("Member") @db.VarChar(20)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  deletedAt    DateTime?
+
+  memberships         GroupMembership[]
+  paidExpenses        Expense[]           @relation("PaidExpenses")
+  splits              ExpenseParticipant[]
+  sentSettlements     Settlement[]        @relation("SentSettlements")
+  receivedSettlements Settlement[]        @relation("ReceivedSettlements")
+  importSessions      ImportSession[]
+  reviewedAnomalies   ImportAnomaly[]     @relation("ReviewedAnomalies")
+  auditLogs           AuditLog[]
+  exchangeRates       ExchangeRate[]
+  refreshTokens       RefreshToken[]
+
+  @@map("users")
+}
+
+// ---------------------------------------------------------------------------
+// RefreshTokens — JWT refresh token rotation
+// ---------------------------------------------------------------------------
+model RefreshToken {
+  id        String    @id @default(uuid())
+  token     String    @unique @db.VarChar(512)
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime  @default(now())
+  revokedAt DateTime?
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@map("refresh_tokens")
+}
+
+// ---------------------------------------------------------------------------
+// Groups — expense sharing groups (e.g. "Flatmates 2024", "Goa Trip")
+// ---------------------------------------------------------------------------
+model Group {
+  id          String    @id @default(uuid())
+  name        String    @db.VarChar(200)
+  description String?   @db.Text
+  createdById String
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+
+  memberships GroupMembership[]
+  expenses    Expense[]
+  settlements Settlement[]
+
+  @@map("groups")
+}
+
+// ---------------------------------------------------------------------------
+// GroupMembership — historical record of who was in which group and when.
+// Meera: leftAt = 2024-03-31 (moved out)
+// Sam:   joinedAt = 2024-04-15 (moved in)
+// Dev:   Trip group only
+// ---------------------------------------------------------------------------
+model GroupMembership {
+  id        String    @id @default(uuid())
+  groupId   String
+  userId    String
+  joinedAt  DateTime
+  leftAt    DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  group Group @relation(fields: [groupId], references: [id])
+  user  User  @relation(fields: [userId], references: [id])
+
+  @@unique([groupId, userId, joinedAt])
+  @@index([groupId])
+  @@index([userId])
+  @@map("group_memberships")
+}
+
+// ---------------------------------------------------------------------------
+// Expenses — individual shared expense entries
+// ---------------------------------------------------------------------------
+model Expense {
+  id               String    @id @default(uuid())
+  groupId          String
+  description      String    @db.VarChar(500)
+  amount           Decimal   @db.Decimal(12, 2)
+  currency         String    @default("INR") @db.VarChar(10)
+  originalAmount   Decimal   @db.Decimal(12, 2)
+  originalCurrency String    @default("INR") @db.VarChar(10)
+  exchangeRate     Decimal   @default(1.0) @db.Decimal(12, 6)
+  paidById         String
+  splitType        String    @default("EQUAL") @db.VarChar(20)
+  notes            String?   @db.Text
+  category         String?   @db.VarChar(100)
+  importSessionId  String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  deletedAt        DateTime?
+
+  group        Group                @relation(fields: [groupId], references: [id])
+  paidBy       User                 @relation("PaidExpenses", fields: [paidById], references: [id])
+  participants ExpenseParticipant[]
+
+  @@index([groupId])
+  @@index([paidById])
+  @@map("expenses")
+}
+
+// ---------------------------------------------------------------------------
+// ExpenseParticipants — the split ledger (who owes how much per expense)
+// ---------------------------------------------------------------------------
+model ExpenseParticipant {
+  id         String    @id @default(uuid())
+  expenseId  String
+  userId     String
+  amount     Decimal   @db.Decimal(12, 2)
+  percentage Decimal?  @db.Decimal(8, 4)
+  weight     Decimal?  @db.Decimal(8, 4)
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  deletedAt  DateTime?
+
+  expense Expense @relation(fields: [expenseId], references: [id])
+  user    User    @relation(fields: [userId], references: [id])
+
+  @@index([expenseId])
+  @@index([userId])
+  @@map("expense_participants")
+}
+
+// ---------------------------------------------------------------------------
+// Settlements — recorded payments between group members
+// ---------------------------------------------------------------------------
+model Settlement {
+  id         String    @id @default(uuid())
+  groupId    String
+  fromUserId String
+  toUserId   String
+  amount     Decimal   @db.Decimal(12, 2)
+  currency   String    @default("INR") @db.VarChar(10)
+  status     String    @default("PAID") @db.VarChar(20)
+  notes      String?   @db.Text
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  deletedAt  DateTime?
+
+  group    Group @relation(fields: [groupId], references: [id])
+  fromUser User  @relation("SentSettlements", fields: [fromUserId], references: [id])
+  toUser   User  @relation("ReceivedSettlements", fields: [toUserId], references: [id])
+
+  @@index([groupId])
+  @@index([fromUserId])
+  @@index([toUserId])
+  @@map("settlements")
+}
+
+// ---------------------------------------------------------------------------
+// ImportSessions — tracks every CSV upload attempt
+// ---------------------------------------------------------------------------
+model ImportSession {
+  id            String    @id @default(uuid())
+  fileName      String    @db.VarChar(500)
+  groupId       String?
+  status        String    @default("PENDING_APPROVAL") @db.VarChar(30)
+  rowsProcessed Int       @default(0)
+  rowsImported  Int       @default(0)
+  rowsRejected  Int       @default(0)
+  warningsCount Int       @default(0)
+  errorsCount   Int       @default(0)
+  reviewedById  String?
+  reviewedAt    DateTime?
+  createdById   String
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  deletedAt     DateTime?
+
+  createdBy User          @relation(fields: [createdById], references: [id])
+  anomalies ImportAnomaly[]
+
+  @@index([createdById])
+  @@map("import_sessions")
+}
+
+// ---------------------------------------------------------------------------
+// ImportAnomalies — every detected rule violation in a CSV import
+// ---------------------------------------------------------------------------
+model ImportAnomaly {
+  id              String    @id @default(uuid())
+  importSessionId String
+  anomalyType     String    @db.VarChar(100)
+  rowNumber       Int
+  description     String    @db.Text
+  severity        String    @db.VarChar(10)
+  suggestedAction String    @db.Text
+  finalAction     String    @default("PENDING") @db.VarChar(20)
+  reviewerId      String?
+  resolvedAt      DateTime?
+  rawRowData      String?   @db.Text
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  deletedAt       DateTime?
+
+  importSession ImportSession @relation(fields: [importSessionId], references: [id])
+  reviewer      User?         @relation("ReviewedAnomalies", fields: [reviewerId], references: [id])
+
+  @@index([importSessionId])
+  @@index([reviewerId])
+  @@map("import_anomalies")
+}
+
+// ---------------------------------------------------------------------------
+// AuditLogs — immutable event trail for every significant action
+// ---------------------------------------------------------------------------
+model AuditLog {
+  id         String    @id @default(uuid())
+  userId     String?
+  action     String    @db.VarChar(100)
+  entityType String    @db.VarChar(50)
+  entityId   String?   @db.VarChar(36)
+  details    String?   @db.Text
+  ipAddress  String?   @db.VarChar(45)
+  userAgent  String?   @db.VarChar(500)
+  createdAt  DateTime  @default(now())
+
+  user User? @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@map("audit_logs")
+}
+
+// ---------------------------------------------------------------------------
+// ExchangeRates — auditable currency conversion history
+// ---------------------------------------------------------------------------
+model ExchangeRate {
+  id            String    @id @default(uuid())
+  fromCurrency  String    @db.VarChar(10)
+  toCurrency    String    @db.VarChar(10)
+  rate          Decimal   @db.Decimal(14, 6)
+  effectiveDate DateTime
+  source        String?   @db.VarChar(100)
+  createdById   String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  deletedAt     DateTime?
+
+  createdBy User? @relation(fields: [createdById], references: [id])
+
+  @@index([createdById])
+  @@map("exchange_rates")
+}

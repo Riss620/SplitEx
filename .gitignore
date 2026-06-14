@@ -1,0 +1,39 @@
+# ─── Dependencies ────────────────────────────────────────────────────────────
+node_modules/
+
+# ─── Environment secrets — NEVER commit these ────────────────────────────────
+.env
+.env.local
+.env.*.local
+
+# ─── Build artifacts ─────────────────────────────────────────────────────────
+dist/
+build/
+
+# ─── Upload buffers (temporary files, not for VCS) ───────────────────────────
+uploads/*.csv
+
+# ─── Logs ────────────────────────────────────────────────────────────────────
+*.log
+logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ─── OS artifacts ────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+
+# ─── Editor configs ──────────────────────────────────────────────────────────
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# ─── Prisma generated ────────────────────────────────────────────────────────
+backend/prisma/dev.db
+backend/prisma/dev.db-journal
